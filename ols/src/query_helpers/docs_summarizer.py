@@ -21,6 +21,7 @@ from ols.constants import MAX_ITERATIONS, GenericLLMParameters
 from ols.customize import reranker
 from ols.src.prompts.prompt_generator import GeneratePrompt
 from ols.src.query_helpers.query_helper import QueryHelper
+from ols.src.query_helpers.ui_helper import create_ui_agent, generate_ui
 from ols.src.tools.mcp_config_builder import MCPConfigBuilder
 from ols.src.tools.tools import execute_tool_calls
 from ols.utils.token_handler import TokenHandler
@@ -113,6 +114,9 @@ class DocsSummarizer(QueryHelper):
         else:
             logger.debug("No MCP servers provided, tool calling is disabled")
             self._tool_calling_enabled = False
+
+        # Next Gen UI
+        self.ui_agent = create_ui_agent(self.bare_llm)
 
         set_debug(self.verbose)
 
@@ -373,6 +377,31 @@ class DocsSummarizer(QueryHelper):
                                 "type": "tool_result",
                                 "round": i,
                             },
+                        )
+                    # UI integration
+                    try:
+                        ui_components = await generate_ui(
+                            self.ui_agent,
+                            llm_input_values["query"],
+                            tool_calls_messages,
+                        )
+                        for c in ui_components:
+                            ui_chunk = StreamedChunk(
+                                type="ui_component", data=dict(c)
+                            )
+                            logger.info(
+                                "ngui componet: %s\n",
+                                json.dumps(
+                                    json.loads(c.content),
+                                    ensure_ascii=False,
+                                    indent=2,
+                                ),
+                            )
+                            yield ui_chunk
+                    except Exception as e:
+                        logger.exception("error during ngui processing")
+                        yield StreamedChunk(
+                            type="ui_component", data={"error": str(e)}
                         )
 
     async def generate_response(

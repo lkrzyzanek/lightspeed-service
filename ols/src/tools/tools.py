@@ -80,7 +80,12 @@ async def _execute_single_tool_call(
             status = "error"
             logger.exception(tool_output)
 
-    return ToolMessage(content=tool_output, status=status, tool_call_id=tool_id)
+    return ToolMessage(
+        content=tool_output,
+        status=status,
+        tool_call_id=tool_id,
+        name=tool_name,
+    )
 
 
 async def execute_tool_calls(

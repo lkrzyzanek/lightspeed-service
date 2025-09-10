@@ -53,6 +53,7 @@ auth_dependency = get_auth_dependency(config.ols_config, virtual_path="/ols-acce
 LLM_TOKEN_EVENT = "token"  # noqa: S105
 LLM_TOOL_CALL_EVENT = "tool_call"
 LLM_TOOL_RESULT_EVENT = "tool_result"
+LLM_UI_EVENT = "ui"
 
 
 query_responses: dict[int | str, dict[str, Any]] = {
@@ -170,6 +171,8 @@ def stream_event(data: dict, event_type: str, media_type: str) -> str:
             return data["token"]
         if event_type == LLM_TOOL_CALL_EVENT:
             return f"\nTool call: {json.dumps(data)}\n"
+        if event_type == LLM_UI_EVENT:
+            return f"\nUI: {json.dumps(data)}\n"
         if event_type == LLM_TOOL_RESULT_EVENT:
             return f"\nTool result: {json.dumps(data)}\n"
         logger.error("Unknown event type: %s", event_type)
@@ -393,6 +396,13 @@ async def response_processing_wrapper(
                 yield stream_event(
                     data=item.data,
                     event_type=LLM_TOOL_CALL_EVENT,
+                    media_type=media_type,
+                )
+            elif item.type == "ui_component":
+                tool_results.append(item.data)
+                yield stream_event(
+                    data=item.data,
+                    event_type=LLM_UI_EVENT,
                     media_type=media_type,
                 )
             elif item.type == "tool_result":
